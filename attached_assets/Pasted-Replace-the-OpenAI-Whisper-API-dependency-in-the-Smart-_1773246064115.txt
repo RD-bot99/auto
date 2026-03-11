@@ -1,0 +1,131 @@
+Replace the OpenAI Whisper API dependency in the Smart Clipper module
+with free, no-API-key alternatives. Do NOT use any OpenAI services.
+
+---
+
+## REMOVE
+- openai npm package (used only for Whisper)
+- OPENAI_API_KEY environment variable
+- Any call to api.openai.com
+
+---
+
+## REPLACEMENT STRATEGY (in priority order)
+
+### PRIMARY: Groq Whisper API (free tier, very fast)
+```bash
+npm install groq-sdk
+```
+```javascript
+// backend/src/services/transcriptionService.js
+
+import Groq from "groq-sdk";
+
+const groq = new Groq({ apiKey: process.env.GROQ_API_KEY });
+
+async function transcribeAudio(audioPath) {
+  const file = fs.createReadStream(audioPath);
+  
+  const transcription = await groq.audio.transcriptions.create({
+    file,
+    model: "whisper-large-v3",      // same Whisper model, free on Groq
+    response_format: "verbose_json", // returns segments with timestamps
+    timestamp_granularities: ["segment"]
+  });
+
+  // Returns same format as OpenAI Whisper — zero code change needed elsewhere
+  return transcription.segments; // [{ start, end, text }]
+}
+```
+
+**Why Groq:** Free tier = 7,200 minutes of audio/day. No credit card needed.
+Get key at: console.groq.com (free account)
+
+---
+
+### FALLBACK: Local Whisper via Python (100% offline, no API key)
+
+If Groq fails or quota exceeded, auto-fallback to local:
+```javascript
+async function transcribeLocal(audioPath) {
+  return new Promise((resolve, reject) => {
+    // Runs: python3 -m whisper audio.wav --model small --output_format json
+    const py = spawn('python3', [
+      '-m', 'whisper', audioPath,
+      '--model', 'small',         // 'small' = fast, good quality, ~244MB
+      '--output_format', 'json',
+      '--output_dir', '/tmp/',
+      '--language', 'auto'        // auto-detect language
+    ]);
+
+    py.on('close', (code) => {
+      if (code !== 0) return reject(new Error('Whisper local failed'));
+      const result = JSON.parse(
+        fs.readFileSync(audioPath.replace('.wav', '.json'))
+      );
+      resolve(result.segments); // same format [{ start, end, text }]
+    });
+  });
+}
+```
+```bash
+# Install once at Replit startup (add to replit.nix or shell script)
+pip install openai-whisper --quiet
+# Downloads model on first use (~244MB for 'small')
+```
+
+---
+
+### TRANSCRIPTION ORCHESTRATOR (auto-switch)
+```javascript
+// backend/src/services/transcriptionService.js
+
+async function transcribe(audioPath) {
+  // Try Groq first (fast, free, cloud)
+  if (process.env.GROQ_API_KEY) {
+    try {
+      console.log('[Transcription] Using Groq Whisper...');
+      return await transcribeWithGroq(audioPath);
+    } catch (err) {
+      console.warn('[Transcription] Groq failed, falling back to local:', err.message);
+    }
+  }
+
+  // Fallback: local Whisper (no key needed, slower)
+  console.log('[Transcription] Using local Whisper model...');
+  return await transcribeLocal(audioPath);
+}
+
+export default { transcribe };
+```
+
+---
+
+## UPDATE ENV VARIABLES
+
+Remove:
+OPENAI_API_KEY=   ← DELETE THIS
+
+Add:
+GROQ_API_KEY=     ← Free at console.groq.com (optional but recommended)
+WHISPER_MODEL=small  ← local fallback model size: tiny | small | medium
+
+---
+
+## UPDATE package.json
+
+Remove:
+```json
+"openai": "^4.x.x"
+```
+
+Add:
+```json
+"groq-sdk": "^0.x.x"
+```
+
+---
+
+## NO OTHER CHANGES NEEDED
+All other clipper logic (FFmpeg cutting, subtitle burning, Claude AI detection)
+remains exactly the same. The transcriptionService output format is identical.
