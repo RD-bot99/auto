@@ -1,8 +1,8 @@
-# Workspace
+# AutoFlow — Social Media Automation Hub
 
 ## Overview
 
-pnpm workspace monorepo using TypeScript. Each package manages its own dependencies.
+AutoFlow is a full-stack social media automation platform for managing, scheduling, and publishing videos across TikTok, YouTube, and Instagram. It features AI-powered video analysis via Claude, a smart scheduling engine with optimal posting time recommendations, and a comprehensive dashboard.
 
 ## Stack
 
@@ -15,33 +15,73 @@ pnpm workspace monorepo using TypeScript. Each package manages its own dependenc
 - **Validation**: Zod (`zod/v4`), `drizzle-zod`
 - **API codegen**: Orval (from OpenAPI spec)
 - **Build**: esbuild (CJS bundle)
+- **Frontend**: React + Vite + Tailwind CSS
+- **AI**: Anthropic Claude via Replit AI Integrations (claude-sonnet-4-6)
+- **Auth**: JWT (stored in httpOnly cookies) + bcryptjs for password hashing
+
+## Features
+
+1. **Auth** — Register/login with JWT httpOnly cookie sessions
+2. **Platform Connections** — Connect TikTok, YouTube, Instagram (simulated OAuth)
+3. **Video Library** — Upload video metadata, drag-and-drop UI
+4. **AI Analysis** — Claude analyzes videos for category, tone, virality score (1-10), and generates platform-specific captions/hashtags
+5. **Smart Scheduler** — Algorithm suggests optimal posting times per platform with confidence scores
+6. **Publish Pipeline** — Schedule posts, publish immediately, track status (pending/published/failed)
+7. **Analytics** — Overview dashboard, per-post analytics with engagement metrics
+8. **Settings** — Account management, timezone config, notification preferences
 
 ## Structure
 
 ```text
 artifacts-monorepo/
-├── artifacts/              # Deployable applications
-│   └── api-server/         # Express API server
-├── lib/                    # Shared libraries
+├── artifacts/
+│   ├── api-server/         # Express API server (backend)
+│   └── autoflow/           # React + Vite frontend (AutoFlow app)
+├── lib/
 │   ├── api-spec/           # OpenAPI spec + Orval codegen config
 │   ├── api-client-react/   # Generated React Query hooks
 │   ├── api-zod/            # Generated Zod schemas from OpenAPI
-│   └── db/                 # Drizzle ORM schema + DB connection
-├── scripts/                # Utility scripts (single workspace package)
-│   └── src/                # Individual .ts scripts, run via `pnpm --filter @workspace/scripts run <script>`
-├── pnpm-workspace.yaml     # pnpm workspace (artifacts/*, lib/*, lib/integrations/*, scripts)
-├── tsconfig.base.json      # Shared TS options (composite, bundler resolution, es2022)
-├── tsconfig.json           # Root TS project references
-└── package.json            # Root package with hoisted devDeps
+│   ├── db/                 # Drizzle ORM schema + DB connection
+│   └── integrations-anthropic-ai/  # Anthropic AI client
+└── scripts/                # Utility scripts
 ```
+
+## Database Schema
+
+- `users` — email, password_hash, timezone
+- `platform_connections` — per-platform OAuth tokens, status, follower count
+- `videos` — file metadata, AI analysis results, virality score
+- `scheduled_posts` — platform, schedule time, status, captions/hashtags
+- `publish_logs` — per-attempt publish history with API responses
+
+## API Routes
+
+- `POST /api/auth/register` — Create account
+- `POST /api/auth/login` — Login
+- `GET /api/auth/me` — Get current user
+- `GET /api/platforms` — List platform connections
+- `POST /api/platforms/:platform/connect` — Connect a platform
+- `POST /api/platforms/:platform/disconnect` — Disconnect a platform
+- `GET /api/videos` — List videos
+- `POST /api/videos` — Create video
+- `POST /api/videos/:id/analyze` — AI analyze video
+- `GET /api/scheduled-posts` — List scheduled posts
+- `POST /api/scheduled-posts` — Schedule a post
+- `PATCH /api/scheduled-posts/:id` — Update scheduled post
+- `POST /api/scheduled-posts/:id/publish` — Publish immediately
+- `POST /api/scheduler/optimal-times` — Get optimal posting times
+- `GET /api/analytics/overview` — Overview stats
+- `GET /api/analytics/posts` — Per-post analytics
+- `GET /api/publish-logs` — Publish history
+
+## Demo Account
+
+- Email: `demo@autoflow.com`
+- Password: `demo1234`
 
 ## TypeScript & Composite Projects
 
-Every package extends `tsconfig.base.json` which sets `composite: true`. The root `tsconfig.json` lists all packages as project references. This means:
-
-- **Always typecheck from the root** — run `pnpm run typecheck` (which runs `tsc --build --emitDeclarationOnly`). This builds the full dependency graph so that cross-package imports resolve correctly. Running `tsc` inside a single package will fail if its dependencies haven't been built yet.
-- **`emitDeclarationOnly`** — we only emit `.d.ts` files during typecheck; actual JS bundling is handled by esbuild/tsx/vite...etc, not `tsc`.
-- **Project references** — when package A depends on package B, A's `tsconfig.json` must list B in its `references` array. `tsc --build` uses this to determine build order and skip up-to-date packages.
+Every package extends `tsconfig.base.json` which sets `composite: true`. The root `tsconfig.json` lists all packages as project references.
 
 ## Root Scripts
 
@@ -52,45 +92,13 @@ Every package extends `tsconfig.base.json` which sets `composite: true`. The roo
 
 ### `artifacts/api-server` (`@workspace/api-server`)
 
-Express 5 API server. Routes live in `src/routes/` and use `@workspace/api-zod` for request and response validation and `@workspace/db` for persistence.
+Express 5 API server. Routes live in `src/routes/`, middleware in `src/middleware/`.
 
-- Entry: `src/index.ts` — reads `PORT`, starts Express
-- App setup: `src/app.ts` — mounts CORS, JSON/urlencoded parsing, routes at `/api`
-- Routes: `src/routes/index.ts` mounts sub-routers; `src/routes/health.ts` exposes `GET /health` (full path: `/api/health`)
-- Depends on: `@workspace/db`, `@workspace/api-zod`
-- `pnpm --filter @workspace/api-server run dev` — run the dev server
-- `pnpm --filter @workspace/api-server run build` — production esbuild bundle (`dist/index.cjs`)
-- Build bundles an allowlist of deps (express, cors, pg, drizzle-orm, zod, etc.) and externalizes the rest
+- Depends on: `@workspace/db`, `@workspace/api-zod`, `@workspace/integrations-anthropic-ai`
 
-### `lib/db` (`@workspace/db`)
+### `artifacts/autoflow` (`@workspace/autoflow`)
 
-Database layer using Drizzle ORM with PostgreSQL. Exports a Drizzle client instance and schema models.
+React + Vite frontend. Pages in `src/pages/`, components in `src/components/`.
 
-- `src/index.ts` — creates a `Pool` + Drizzle instance, exports schema
-- `src/schema/index.ts` — barrel re-export of all models
-- `src/schema/<modelname>.ts` — table definitions with `drizzle-zod` insert schemas (no models definitions exist right now)
-- `drizzle.config.ts` — Drizzle Kit config (requires `DATABASE_URL`, automatically provided by Replit)
-- Exports: `.` (pool, db, schema), `./schema` (schema only)
-
-Production migrations are handled by Replit when publishing. In development, we just use `pnpm --filter @workspace/db run push`, and we fallback to `pnpm --filter @workspace/db run push-force`.
-
-### `lib/api-spec` (`@workspace/api-spec`)
-
-Owns the OpenAPI 3.1 spec (`openapi.yaml`) and the Orval config (`orval.config.ts`). Running codegen produces output into two sibling packages:
-
-1. `lib/api-client-react/src/generated/` — React Query hooks + fetch client
-2. `lib/api-zod/src/generated/` — Zod schemas
-
-Run codegen: `pnpm --filter @workspace/api-spec run codegen`
-
-### `lib/api-zod` (`@workspace/api-zod`)
-
-Generated Zod schemas from the OpenAPI spec (e.g. `HealthCheckResponse`). Used by `api-server` for response validation.
-
-### `lib/api-client-react` (`@workspace/api-client-react`)
-
-Generated React Query hooks and fetch client from the OpenAPI spec (e.g. `useHealthCheck`, `healthCheck`).
-
-### `scripts` (`@workspace/scripts`)
-
-Utility scripts package. Each script is a `.ts` file in `src/` with a corresponding npm script in `package.json`. Run scripts via `pnpm --filter @workspace/scripts run <script>`. Scripts can import any workspace package (e.g., `@workspace/db`) by adding it as a dependency in `scripts/package.json`.
+- Auth context in `src/lib/auth.tsx`
+- API hooks from `@workspace/api-client-react`

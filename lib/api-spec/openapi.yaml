@@ -1,22 +1,33 @@
 openapi: 3.1.0
 info:
-  # Do not change the title, if the title changes, the import paths will be broken
   title: Api
   version: 0.1.0
-  description: API specification
+  description: AutoFlow API specification
 servers:
   - url: /api
     description: Base API path
 tags:
   - name: health
     description: Health operations
+  - name: auth
+    description: Authentication
+  - name: platforms
+    description: Social media platform connections
+  - name: videos
+    description: Video management
+  - name: scheduler
+    description: Scheduling
+  - name: analytics
+    description: Analytics
+  - name: ai
+    description: AI analysis
+
 paths:
   /healthz:
     get:
       operationId: healthCheck
       tags: [health]
       summary: Health check
-      description: Returns server health status
       responses:
         "200":
           description: Healthy
@@ -24,6 +35,433 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/HealthStatus"
+
+  /auth/me:
+    get:
+      operationId: getMe
+      tags: [auth]
+      summary: Get current user
+      responses:
+        "200":
+          description: Current user
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/User"
+        "401":
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /auth/register:
+    post:
+      operationId: register
+      tags: [auth]
+      summary: Register new user
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RegisterRequest"
+      responses:
+        "201":
+          description: User created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AuthResponse"
+        "400":
+          description: Bad request
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /auth/login:
+    post:
+      operationId: login
+      tags: [auth]
+      summary: Login
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/LoginRequest"
+      responses:
+        "200":
+          description: Logged in
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AuthResponse"
+        "401":
+          description: Invalid credentials
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /auth/logout:
+    post:
+      operationId: logout
+      tags: [auth]
+      summary: Logout
+      responses:
+        "200":
+          description: Logged out
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MessageResponse"
+
+  /platforms:
+    get:
+      operationId: getPlatformConnections
+      tags: [platforms]
+      summary: Get all platform connections
+      responses:
+        "200":
+          description: List of platform connections
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/PlatformConnection"
+
+  /platforms/{platform}/connect:
+    post:
+      operationId: connectPlatform
+      tags: [platforms]
+      summary: Connect a platform (mock OAuth)
+      parameters:
+        - name: platform
+          in: path
+          required: true
+          schema:
+            type: string
+            enum: [tiktok, youtube, instagram]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ConnectPlatformRequest"
+      responses:
+        "200":
+          description: Platform connected
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PlatformConnection"
+        "400":
+          description: Bad request
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /platforms/{platform}/disconnect:
+    post:
+      operationId: disconnectPlatform
+      tags: [platforms]
+      summary: Disconnect a platform
+      parameters:
+        - name: platform
+          in: path
+          required: true
+          schema:
+            type: string
+            enum: [tiktok, youtube, instagram]
+      responses:
+        "200":
+          description: Platform disconnected
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MessageResponse"
+
+  /videos:
+    get:
+      operationId: getVideos
+      tags: [videos]
+      summary: Get all videos for user
+      parameters:
+        - name: status
+          in: query
+          schema:
+            type: string
+        - name: platform
+          in: query
+          schema:
+            type: string
+      responses:
+        "200":
+          description: List of videos
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Video"
+
+    post:
+      operationId: createVideo
+      tags: [videos]
+      summary: Create a video entry
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateVideoRequest"
+      responses:
+        "201":
+          description: Video created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Video"
+
+  /videos/{id}:
+    get:
+      operationId: getVideo
+      tags: [videos]
+      summary: Get a video by ID
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Video details
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Video"
+        "404":
+          description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+    delete:
+      operationId: deleteVideo
+      tags: [videos]
+      summary: Delete a video
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Video deleted
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MessageResponse"
+
+  /videos/{id}/analyze:
+    post:
+      operationId: analyzeVideo
+      tags: [videos]
+      summary: AI analyze a video
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Analysis result
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/VideoAnalysis"
+
+  /scheduled-posts:
+    get:
+      operationId: getScheduledPosts
+      tags: [scheduler]
+      summary: Get all scheduled posts
+      parameters:
+        - name: status
+          in: query
+          schema:
+            type: string
+        - name: platform
+          in: query
+          schema:
+            type: string
+      responses:
+        "200":
+          description: List of scheduled posts
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/ScheduledPost"
+
+    post:
+      operationId: createScheduledPost
+      tags: [scheduler]
+      summary: Schedule a post
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateScheduledPostRequest"
+      responses:
+        "201":
+          description: Post scheduled
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ScheduledPost"
+
+  /scheduled-posts/{id}:
+    patch:
+      operationId: updateScheduledPost
+      tags: [scheduler]
+      summary: Update a scheduled post
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateScheduledPostRequest"
+      responses:
+        "200":
+          description: Post updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ScheduledPost"
+
+    delete:
+      operationId: deleteScheduledPost
+      tags: [scheduler]
+      summary: Delete a scheduled post
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Post deleted
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MessageResponse"
+
+  /scheduled-posts/{id}/publish:
+    post:
+      operationId: publishNow
+      tags: [scheduler]
+      summary: Publish a post immediately
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Post published
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ScheduledPost"
+
+  /scheduler/optimal-times:
+    post:
+      operationId: getOptimalTimes
+      tags: [scheduler]
+      summary: Get optimal posting times for a platform
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/OptimalTimesRequest"
+      responses:
+        "200":
+          description: Optimal time slots
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/TimeSlot"
+
+  /analytics/overview:
+    get:
+      operationId: getAnalyticsOverview
+      tags: [analytics]
+      summary: Get analytics overview
+      responses:
+        "200":
+          description: Analytics overview
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AnalyticsOverview"
+
+  /analytics/posts:
+    get:
+      operationId: getPostAnalytics
+      tags: [analytics]
+      summary: Get per-post analytics
+      responses:
+        "200":
+          description: Post analytics
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/PostAnalytics"
+
+  /publish-logs:
+    get:
+      operationId: getPublishLogs
+      tags: [scheduler]
+      summary: Get publish logs
+      parameters:
+        - name: scheduledPostId
+          in: query
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Publish logs
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/PublishLog"
+
 components:
   schemas:
     HealthStatus:
@@ -34,3 +472,476 @@ components:
       required:
         - status
 
+    ErrorResponse:
+      type: object
+      properties:
+        error:
+          type: string
+        message:
+          type: string
+      required:
+        - error
+
+    MessageResponse:
+      type: object
+      properties:
+        message:
+          type: string
+      required:
+        - message
+
+    User:
+      type: object
+      properties:
+        id:
+          type: integer
+        email:
+          type: string
+        timezone:
+          type: string
+        createdAt:
+          type: string
+          format: date-time
+      required:
+        - id
+        - email
+        - timezone
+        - createdAt
+
+    RegisterRequest:
+      type: object
+      properties:
+        email:
+          type: string
+          format: email
+        password:
+          type: string
+          minLength: 8
+        timezone:
+          type: string
+      required:
+        - email
+        - password
+
+    LoginRequest:
+      type: object
+      properties:
+        email:
+          type: string
+          format: email
+        password:
+          type: string
+      required:
+        - email
+        - password
+
+    AuthResponse:
+      type: object
+      properties:
+        user:
+          $ref: "#/components/schemas/User"
+        token:
+          type: string
+      required:
+        - user
+        - token
+
+    PlatformConnection:
+      type: object
+      properties:
+        id:
+          type: integer
+        userId:
+          type: integer
+        platform:
+          type: string
+          enum: [tiktok, youtube, instagram]
+        status:
+          type: string
+          enum: [connected, disconnected, expired]
+        username:
+          type: string
+          nullable: true
+        followerCount:
+          type: integer
+          nullable: true
+        avatarUrl:
+          type: string
+          nullable: true
+        expiresAt:
+          type: string
+          format: date-time
+          nullable: true
+        createdAt:
+          type: string
+          format: date-time
+      required:
+        - id
+        - userId
+        - platform
+        - status
+        - createdAt
+
+    ConnectPlatformRequest:
+      type: object
+      properties:
+        username:
+          type: string
+        followerCount:
+          type: integer
+        avatarUrl:
+          type: string
+      required:
+        - username
+
+    Video:
+      type: object
+      properties:
+        id:
+          type: integer
+        userId:
+          type: integer
+        title:
+          type: string
+        description:
+          type: string
+          nullable: true
+        fileUrl:
+          type: string
+        thumbnailUrl:
+          type: string
+          nullable: true
+        duration:
+          type: number
+          nullable: true
+        fileSize:
+          type: integer
+          nullable: true
+        resolution:
+          type: string
+          nullable: true
+        fileHash:
+          type: string
+          nullable: true
+        viralityScore:
+          type: number
+          nullable: true
+        category:
+          type: string
+          nullable: true
+        tone:
+          type: string
+          nullable: true
+        status:
+          type: string
+          enum: [uploaded, analyzing, analyzed, scheduled, published]
+        aiSuggestions:
+          nullable: true
+          type: object
+          properties:
+            title:
+              type: string
+            description:
+              type: string
+            hashtags:
+              type: array
+              items:
+                type: string
+            tiktokCaption:
+              type: string
+            youtubeDescription:
+              type: string
+            instagramCaption:
+              type: string
+        createdAt:
+          type: string
+          format: date-time
+      required:
+        - id
+        - userId
+        - title
+        - fileUrl
+        - status
+        - createdAt
+
+    CreateVideoRequest:
+      type: object
+      properties:
+        title:
+          type: string
+        description:
+          type: string
+        fileUrl:
+          type: string
+        thumbnailUrl:
+          type: string
+        duration:
+          type: number
+        fileSize:
+          type: integer
+        resolution:
+          type: string
+      required:
+        - title
+        - fileUrl
+
+    VideoAnalysis:
+      type: object
+      properties:
+        videoId:
+          type: integer
+        category:
+          type: string
+        tone:
+          type: string
+        viralityScore:
+          type: number
+        suggestions:
+          type: object
+          properties:
+            title:
+              type: string
+            description:
+              type: string
+            hashtags:
+              type: array
+              items:
+                type: string
+            tiktokCaption:
+              type: string
+            youtubeDescription:
+              type: string
+            instagramCaption:
+              type: string
+          required:
+            - title
+            - description
+            - hashtags
+      required:
+        - videoId
+        - category
+        - tone
+        - viralityScore
+        - suggestions
+
+    ScheduledPost:
+      type: object
+      properties:
+        id:
+          type: integer
+        videoId:
+          type: integer
+        userId:
+          type: integer
+        platform:
+          type: string
+          enum: [tiktok, youtube, instagram]
+        scheduledAt:
+          type: string
+          format: date-time
+        status:
+          type: string
+          enum: [pending, publishing, published, failed, cancelled]
+        caption:
+          type: string
+          nullable: true
+        hashtags:
+          type: array
+          items:
+            type: string
+          nullable: true
+        publishedAt:
+          type: string
+          format: date-time
+          nullable: true
+        errorMessage:
+          type: string
+          nullable: true
+        video:
+          $ref: "#/components/schemas/Video"
+          nullable: true
+        createdAt:
+          type: string
+          format: date-time
+      required:
+        - id
+        - videoId
+        - userId
+        - platform
+        - scheduledAt
+        - status
+        - createdAt
+
+    CreateScheduledPostRequest:
+      type: object
+      properties:
+        videoId:
+          type: integer
+        platform:
+          type: string
+          enum: [tiktok, youtube, instagram]
+        scheduledAt:
+          type: string
+          format: date-time
+        caption:
+          type: string
+        hashtags:
+          type: array
+          items:
+            type: string
+      required:
+        - videoId
+        - platform
+        - scheduledAt
+
+    UpdateScheduledPostRequest:
+      type: object
+      properties:
+        scheduledAt:
+          type: string
+          format: date-time
+        caption:
+          type: string
+        hashtags:
+          type: array
+          items:
+            type: string
+        status:
+          type: string
+
+    OptimalTimesRequest:
+      type: object
+      properties:
+        platform:
+          type: string
+          enum: [tiktok, youtube, instagram]
+        category:
+          type: string
+        timezone:
+          type: string
+      required:
+        - platform
+
+    TimeSlot:
+      type: object
+      properties:
+        datetime:
+          type: string
+          format: date-time
+        confidence:
+          type: number
+        reason:
+          type: string
+        dayOfWeek:
+          type: string
+      required:
+        - datetime
+        - confidence
+        - reason
+        - dayOfWeek
+
+    AnalyticsOverview:
+      type: object
+      properties:
+        totalVideos:
+          type: integer
+        totalScheduled:
+          type: integer
+        totalPublished:
+          type: integer
+        totalFailed:
+          type: integer
+        platformBreakdown:
+          type: array
+          items:
+            type: object
+            properties:
+              platform:
+                type: string
+              published:
+                type: integer
+              pending:
+                type: integer
+              failed:
+                type: integer
+            required:
+              - platform
+              - published
+              - pending
+              - failed
+        recentActivity:
+          type: array
+          items:
+            $ref: "#/components/schemas/ScheduledPost"
+      required:
+        - totalVideos
+        - totalScheduled
+        - totalPublished
+        - totalFailed
+        - platformBreakdown
+        - recentActivity
+
+    PostAnalytics:
+      type: object
+      properties:
+        scheduledPostId:
+          type: integer
+        platform:
+          type: string
+        videoTitle:
+          type: string
+        publishedAt:
+          type: string
+          format: date-time
+          nullable: true
+        views:
+          type: integer
+        likes:
+          type: integer
+        comments:
+          type: integer
+        engagementRate:
+          type: number
+        status:
+          type: string
+      required:
+        - scheduledPostId
+        - platform
+        - videoTitle
+        - views
+        - likes
+        - comments
+        - engagementRate
+        - status
+
+    PublishLog:
+      type: object
+      properties:
+        id:
+          type: integer
+        scheduledPostId:
+          type: integer
+        attemptNumber:
+          type: integer
+        status:
+          type: string
+          enum: [success, failed, retrying]
+        apiResponse:
+          type: string
+          nullable: true
+        errorMessage:
+          type: string
+          nullable: true
+        publishedAt:
+          type: string
+          format: date-time
+          nullable: true
+        createdAt:
+          type: string
+          format: date-time
+      required:
+        - id
+        - scheduledPostId
+        - attemptNumber
+        - status
+        - createdAt

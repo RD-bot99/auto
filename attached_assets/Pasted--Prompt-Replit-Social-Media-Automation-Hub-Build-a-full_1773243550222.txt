@@ -1,0 +1,182 @@
+🚀 Prompt Replit — Social Media Automation Hub
+Build a full-stack social media automation application called "AutoFlow" that manages, schedules, and publishes videos intelligently across TikTok, YouTube, and Instagram.
+
+---
+
+## TECH STACK
+- Backend: Node.js + Express.js
+- Frontend: React (Vite) with Tailwind CSS
+- Database: PostgreSQL (via Supabase or Railway)
+- Queue system: Bull (Redis-based job queue)
+- File storage: Cloudinary or AWS S3
+- Auth: OAuth 2.0 for each platform
+
+---
+
+## CORE FEATURES
+
+### 1. SOCIAL MEDIA CONNECTIONS
+Implement official OAuth 2.0 authentication flows for:
+- **TikTok**: Use TikTok Content Posting API (v2) — scope: video.upload, video.publish
+- **YouTube**: Use Google OAuth + YouTube Data API v3 — scope: youtube.upload, youtube.readonly
+- **Instagram**: Use Meta Graph API — scope: instagram_content_publish, instagram_basic
+
+Store encrypted access tokens & refresh tokens in the database.
+Auto-refresh tokens before expiry using cron jobs.
+Show connection status (connected/disconnected/expired) per platform.
+
+### 2. VIDEO UPLOAD & ANALYSIS
+- Drag-and-drop video upload (MP4, MOV, up to 2GB)
+- Upload to cloud storage (Cloudinary or S3)
+- Extract metadata: duration, resolution, fps, file size
+- Generate thumbnail automatically using FFmpeg
+- AI-powered video analysis using Claude API (claude-sonnet-4-20250514):
+  - Detect video category/niche (fitness, cooking, tech, entertainment, etc.)
+  - Analyze content tone (educational, entertaining, promotional)
+  - Suggest title, description, and hashtags per platform
+  - Rate "virality potential" score (1-10)
+
+### 3. SMART SCHEDULING ENGINE (KEY FEATURE)
+Build an intelligent scheduling system that determines the OPTIMAL posting time:
+
+**Algorithm logic:**
+- Fetch historical performance data per platform (views, likes, engagement rate)
+- Use platform-specific best posting times as baseline:
+  - TikTok: 6-10am, 7-9pm (user's local timezone)
+  - YouTube: 2-4pm, Thu-Fri preferred
+  - Instagram Reels: 6-9am, 12-2pm, 5-7pm
+- Factor in: day of week, audience timezone, content category, account size
+- Avoid posting during platform maintenance windows
+- Minimum 4-hour gap between posts on the same platform
+- Detect and avoid duplicate content (hash-based check)
+
+**Output:** A ranked list of 3 recommended time slots per platform with confidence score.
+
+### 4. PUBLISHING PIPELINE (ZERO-BUG SYSTEM)
+Implement a robust, fault-tolerant publishing system:
+```javascript
+// Job queue with retry logic
+const publishJob = {
+  attempts: 3,
+  backoff: { type: 'exponential', delay: 5000 },
+  timeout: 300000, // 5 min timeout
+  removeOnComplete: false, // keep logs
+  removeOnFail: false
+}
+```
+
+Per-platform publish flow:
+- **TikTok**: POST to /v2/post/publish/video/init → upload chunks → confirm publish
+- **YouTube**: Use resumable upload protocol, set privacy status, add to playlist if needed
+- **Instagram**: Create container → wait for processing → publish container (poll status)
+
+Error handling:
+- Catch API rate limits (429) → reschedule automatically
+- Catch auth errors (401) → trigger token refresh → retry
+- Catch server errors (5xx) → retry with backoff
+- Log every step with timestamps to database
+- Send email/push notification on success or failure
+
+### 5. DASHBOARD UI
+Build a clean, dark-themed dashboard with:
+
+**Overview panel:**
+- Account cards for each platform (avatar, follower count, connection status)
+- Upcoming scheduled posts timeline
+- Recent publish history with status badges (✅ published / ⏳ pending / ❌ failed)
+
+**Video library:**
+- Grid of uploaded videos with thumbnail, title, virality score
+- Filter by platform, status, date
+
+**Scheduler view:**
+- Calendar view showing scheduled posts
+- Drag-to-reschedule functionality
+- One-click "Publish Now" button
+
+**Analytics panel:**
+- Views, likes, comments per post (fetched from platform APIs)
+- Best performing posts
+- Engagement rate trends
+
+### 6. ANTI-FRAUD & COMPLIANCE LAYER
+- Rate limiting per platform (respect API quotas):
+  - TikTok: max 100 videos/day per user
+  - YouTube: 6 uploads/day for standard accounts
+  - Instagram: max 50 API calls/hour
+- Duplicate content detection (MD5 hash of video file)
+- Human-like posting behavior: randomize exact post time ±15 minutes
+- Never post the exact same caption twice
+- Log all API calls with IP, timestamp, response code for audit trail
+- Validate video specs before upload (codec, aspect ratio, duration limits per platform)
+
+### 7. SETTINGS & NOTIFICATIONS
+- Timezone configuration
+- Notification preferences (email, in-app)
+- Connected accounts management (connect/disconnect/reconnect)
+- API usage monitor (quota remaining per platform)
+
+---
+
+## DATABASE SCHEMA (PostgreSQL)
+```sql
+users (id, email, password_hash, timezone, created_at)
+platform_connections (id, user_id, platform, access_token_encrypted, refresh_token_encrypted, expires_at, status)
+videos (id, user_id, title, file_url, thumbnail_url, duration, file_hash, virality_score, category, created_at)
+scheduled_posts (id, video_id, user_id, platform, scheduled_at, status, caption, hashtags, job_id)
+publish_logs (id, scheduled_post_id, attempt_number, status, api_response, error_message, published_at)
+```
+
+---
+
+## ENVIRONMENT VARIABLES NEEDED
+TikTok
+TIKTOK_CLIENT_KEY=
+TIKTOK_CLIENT_SECRET=
+Google / YouTube
+GOOGLE_CLIENT_ID=
+GOOGLE_CLIENT_SECRET=
+Meta / Instagram
+META_APP_ID=
+META_APP_SECRET=
+Anthropic (AI analysis)
+ANTHROPIC_API_KEY=
+Infrastructure
+DATABASE_URL=
+REDIS_URL=
+CLOUDINARY_URL= (or AWS_S3 credentials)
+JWT_SECRET=
+ENCRYPTION_KEY= (for token encryption, 32 bytes)
+
+---
+
+## IMPORTANT CONSTRAINTS
+1. Never store raw OAuth tokens — always encrypt with AES-256 before saving to DB
+2. Use HTTPS only, set secure cookie flags
+3. All API calls must go through backend (never expose keys to frontend)
+4. Implement CSRF protection on all forms
+5. Add input validation and sanitization on all user inputs
+6. Use parameterized SQL queries (no raw string concatenation)
+7. Video files must be scanned for valid MIME type before processing
+
+---
+
+## FOLDER STRUCTURE
+autoflow/
+├── backend/
+│   ├── src/
+│   │   ├── routes/ (auth, videos, schedule, platforms, analytics)
+│   │   ├── services/ (tiktok, youtube, instagram, scheduler, ai-analyzer)
+│   │   ├── jobs/ (publishJob, tokenRefreshJob, analyticsJob)
+│   │   ├── middleware/ (auth, rateLimit, errorHandler)
+│   │   └── utils/ (encryption, videoValidation, hashGenerator)
+│   └── package.json
+├── frontend/
+│   ├── src/
+│   │   ├── pages/ (Dashboard, Library, Scheduler, Analytics, Settings)
+│   │   ├── components/ (VideoCard, PlatformCard, CalendarView, Timeline)
+│   │   └── hooks/ (useAuth, usePlatforms, useScheduler)
+│   └── package.json
+└── docker-compose.yml (Redis + PostgreSQL)
+
+Start by building: OAuth connections → video upload → smart scheduler → publish pipeline → dashboard UI, in that order.

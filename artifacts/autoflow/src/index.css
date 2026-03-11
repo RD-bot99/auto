@@ -1,0 +1,134 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&family=Outfit:wght@400;500;600;700;800&display=swap');
+@import "tailwindcss";
+@import "tw-animate-css";
+@plugin "@tailwindcss/typography";
+
+@custom-variant dark (&:is(.dark *));
+
+@theme inline {
+  --font-sans: 'Inter', sans-serif;
+  --font-display: 'Outfit', sans-serif;
+
+  /* Deep dark theme base */
+  --color-background: hsl(240 10% 4%);
+  --color-foreground: hsl(0 0% 98%);
+  
+  --color-card: hsl(240 10% 6%);
+  --color-card-foreground: hsl(0 0% 98%);
+  --color-card-border: hsl(240 10% 12%);
+
+  --color-popover: hsl(240 10% 6%);
+  --color-popover-foreground: hsl(0 0% 98%);
+  --color-popover-border: hsl(240 10% 12%);
+
+  /* Vibrant Accent - Electric Violet */
+  --color-primary: hsl(270 100% 65%);
+  --color-primary-foreground: hsl(0 0% 100%);
+  --color-primary-border: hsl(270 100% 55%);
+
+  --color-secondary: hsl(240 10% 12%);
+  --color-secondary-foreground: hsl(0 0% 98%);
+  --color-secondary-border: hsl(240 10% 18%);
+
+  --color-muted: hsl(240 10% 12%);
+  --color-muted-foreground: hsl(240 5% 65%);
+  --color-muted-border: hsl(240 10% 18%);
+
+  /* Secondary Accent - Cyan/Teal */
+  --color-accent: hsl(190 100% 50%);
+  --color-accent-foreground: hsl(240 10% 4%);
+  --color-accent-border: hsl(190 100% 40%);
+
+  --color-destructive: hsl(0 84% 60%);
+  --color-destructive-foreground: hsl(0 0% 98%);
+  --color-destructive-border: hsl(0 84% 50%);
+
+  --color-border: hsl(240 10% 14%);
+  --color-input: hsl(240 10% 12%);
+  --color-ring: hsl(270 100% 65%);
+
+  /* Platform Colors */
+  --color-tiktok: hsl(348 100% 50%); /* Using the red accent of TikTok */
+  --color-youtube: hsl(0 100% 50%);
+  --color-instagram: hsl(326 100% 50%); /* Pinkish representing the gradient */
+
+  --color-chart-1: hsl(270 100% 65%);
+  --color-chart-2: hsl(190 100% 50%);
+  --color-chart-3: hsl(348 100% 50%);
+  --color-chart-4: hsl(0 100% 50%);
+  --color-chart-5: hsl(326 100% 50%);
+
+  --radius-sm: calc(0.75rem - 4px);
+  --radius-md: calc(0.75rem - 2px);
+  --radius-lg: 0.75rem;
+  --radius-xl: calc(0.75rem + 4px);
+  --radius-2xl: 1.5rem;
+}
+
+:root {
+  --background: 240 10% 4%;
+  --foreground: 0 0% 98%;
+  --card: 240 10% 6%;
+  --card-foreground: 0 0% 98%;
+  --popover: 240 10% 6%;
+  --popover-foreground: 0 0% 98%;
+  --primary: 270 100% 65%;
+  --primary-foreground: 0 0% 100%;
+  --secondary: 240 10% 12%;
+  --secondary-foreground: 0 0% 98%;
+  --muted: 240 10% 12%;
+  --muted-foreground: 240 5% 65%;
+  --accent: 190 100% 50%;
+  --accent-foreground: 240 10% 4%;
+  --destructive: 0 84% 60%;
+  --destructive-foreground: 0 0% 98%;
+  --border: 240 10% 14%;
+  --input: 240 10% 12%;
+  --ring: 270 100% 65%;
+}
+
+@layer base {
+  body {
+    @apply font-sans antialiased bg-background text-foreground selection:bg-primary/30 selection:text-primary-foreground;
+  }
+
+  h1, h2, h3, h4, h5, h6 {
+    font-family: var(--font-display);
+    @apply font-semibold tracking-tight;
+  }
+
+  /* Custom Scrollbar for modern feel */
+  ::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+  }
+  ::-webkit-scrollbar-track {
+    @apply bg-background;
+  }
+  ::-webkit-scrollbar-thumb {
+    @apply bg-muted-foreground/20 rounded-full hover:bg-muted-foreground/40 transition-colors;
+  }
+}
+
+/* Glassmorphism utilities */
+@layer utilities {
+  .glass {
+    @apply bg-card/60 backdrop-blur-xl border border-white/5 shadow-2xl;
+  }
+  .glass-panel {
+    @apply bg-background/80 backdrop-blur-2xl border-r border-white/5;
+  }
+  .text-gradient {
+    @apply bg-clip-text text-transparent bg-gradient-to-r from-primary via-accent to-primary;
+  }
+  .animate-gradient-x {
+    background-size: 200% 200%;
+    animation: gradient-x 15s ease infinite;
+  }
+}
+
+@keyframes gradient-x {
+  0% { background-position: 0% 50%; }
+  50% { background-position: 100% 50%; }
+  100% { background-position: 0% 50%; }
+}

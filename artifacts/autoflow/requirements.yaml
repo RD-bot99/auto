@@ -1,0 +1,15 @@
+packages:
+  "framer-motion": "For smooth page transitions and micro-interactions"
+  "recharts": "For beautiful analytics dashboards"
+  "date-fns": "For formatting dates in the scheduler and timeline"
+  "react-hook-form": "For robust form handling"
+  "@hookform/resolvers": "For zod validation integration"
+
+images:
+  - path: "artifacts/autoflow/public/images/auth-bg.png"
+    description: "Deep dark modern abstract background with subtle neon purple and electric blue glowing gradients and thin geometric lines, professional sleek tech corporate feel"
+    aspect_ratio: "16:9"
+
+notes:
+  - Using generated API hooks from @workspace/api-client-react
+  - App is designed primarily for dark mode to match the sleek professional aesthetic
