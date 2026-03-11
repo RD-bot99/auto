@@ -19,6 +19,8 @@ tags:
     description: Scheduling
   - name: analytics
     description: Analytics
+  - name: clipper
+    description: Smart Clipper
   - name: ai
     description: AI analysis
 
@@ -462,8 +464,233 @@ paths:
                 items:
                   $ref: "#/components/schemas/PublishLog"
 
+  /clipper:
+    get:
+      operationId: listClips
+      tags: [clipper]
+      summary: List user clips
+      security:
+        - cookieAuth: []
+      responses:
+        "200":
+          description: List of clips
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Clip"
+
+  /clipper/upload:
+    post:
+      operationId: uploadClip
+      tags: [clipper]
+      summary: Upload a video file for clipping
+      security:
+        - cookieAuth: []
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              properties:
+                video:
+                  type: string
+                  format: binary
+      responses:
+        "201":
+          description: Clip job started
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ClipJobStarted"
+
+  /clipper/from-url:
+    post:
+      operationId: clipFromUrl
+      tags: [clipper]
+      summary: Create a clip from a URL
+      security:
+        - cookieAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [url]
+              properties:
+                url:
+                  type: string
+      responses:
+        "201":
+          description: Clip job started
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ClipJobStarted"
+
+  /clipper/status/{jobId}:
+    get:
+      operationId: getClipStatus
+      tags: [clipper]
+      summary: Get clip job status
+      security:
+        - cookieAuth: []
+      parameters:
+        - in: path
+          name: jobId
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Job status
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ClipStatus"
+
+  /clipper/download/{clipId}:
+    get:
+      operationId: downloadClip
+      tags: [clipper]
+      summary: Download finished clip
+      security:
+        - cookieAuth: []
+      parameters:
+        - in: path
+          name: clipId
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: MP4 file
+          content:
+            video/mp4:
+              schema:
+                type: string
+                format: binary
+
+  /clipper/{clipId}:
+    delete:
+      operationId: deleteClip
+      tags: [clipper]
+      summary: Delete a clip
+      security:
+        - cookieAuth: []
+      parameters:
+        - in: path
+          name: clipId
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Clip deleted
+
 components:
   schemas:
+    Clip:
+      type: object
+      properties:
+        id:
+          type: string
+        userId:
+          type: integer
+        jobId:
+          type: string
+        sourceUrl:
+          type: string
+          nullable: true
+        sourceFilename:
+          type: string
+          nullable: true
+        clipStart:
+          type: number
+          nullable: true
+        clipEnd:
+          type: number
+          nullable: true
+        aiReason:
+          type: string
+          nullable: true
+        finalFilePath:
+          type: string
+          nullable: true
+        fileSizeBytes:
+          type: integer
+          nullable: true
+        status:
+          type: string
+        errorMessage:
+          type: string
+          nullable: true
+        createdAt:
+          type: string
+          format: date-time
+        downloadedAt:
+          type: string
+          format: date-time
+          nullable: true
+      required:
+        - id
+        - userId
+        - jobId
+        - status
+        - createdAt
+
+    ClipJobStarted:
+      type: object
+      properties:
+        clipId:
+          type: string
+        jobId:
+          type: string
+        status:
+          type: string
+      required:
+        - clipId
+        - jobId
+        - status
+
+    ClipStatus:
+      type: object
+      properties:
+        jobId:
+          type: string
+        clipId:
+          type: string
+        progress:
+          type: integer
+        status:
+          type: string
+        error:
+          type: string
+          nullable: true
+        clipStatus:
+          type: string
+        clipStart:
+          type: number
+          nullable: true
+        clipEnd:
+          type: number
+          nullable: true
+        aiReason:
+          type: string
+          nullable: true
+        fileSizeBytes:
+          type: integer
+          nullable: true
+      required:
+        - jobId
+        - clipId
+        - progress
+        - status
+        - clipStatus
+
     HealthStatus:
       type: object
       properties:
@@ -945,3 +1172,131 @@ components:
         - attemptNumber
         - status
         - createdAt
+
+  /clipper:
+    get:
+      operationId: listClips
+      tags: [clipper]
+      summary: List user clips
+      security:
+        - cookieAuth: []
+      responses:
+        "200":
+          description: List of clips
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Clip"
+
+  /clipper/upload:
+    post:
+      operationId: uploadClip
+      tags: [clipper]
+      summary: Upload a video file for clipping
+      security:
+        - cookieAuth: []
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              properties:
+                video:
+                  type: string
+                  format: binary
+      responses:
+        "201":
+          description: Clip job started
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ClipJobStarted"
+
+  /clipper/from-url:
+    post:
+      operationId: clipFromUrl
+      tags: [clipper]
+      summary: Create a clip from a URL
+      security:
+        - cookieAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [url]
+              properties:
+                url:
+                  type: string
+      responses:
+        "201":
+          description: Clip job started
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ClipJobStarted"
+
+  /clipper/status/{jobId}:
+    get:
+      operationId: getClipStatus
+      tags: [clipper]
+      summary: Get clip job status
+      security:
+        - cookieAuth: []
+      parameters:
+        - in: path
+          name: jobId
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Job status
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ClipStatus"
+
+  /clipper/download/{clipId}:
+    get:
+      operationId: downloadClip
+      tags: [clipper]
+      summary: Download finished clip
+      security:
+        - cookieAuth: []
+      parameters:
+        - in: path
+          name: clipId
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: MP4 file
+          content:
+            video/mp4:
+              schema:
+                type: string
+                format: binary
+
+  /clipper/{clipId}:
+    delete:
+      operationId: deleteClip
+      tags: [clipper]
+      summary: Delete a clip
+      security:
+        - cookieAuth: []
+      parameters:
+        - in: path
+          name: clipId
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Clip deleted
+
