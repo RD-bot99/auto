@@ -1,0 +1,249 @@
+Add a new module called "Smart Clipper" to the existing AutoFlow application.
+This module adds video clipping, subtitle generation, and manual download control.
+
+---
+
+## NEW MODULE: SMART CLIPPER
+
+### WHAT IT DOES
+Given a video file (uploaded directly) or a video URL (YouTube, TikTok, Instagram),
+the system:
+1. Downloads or receives the video
+2. Analyzes it with AI to detect the most important/viral clip
+3. Cuts that clip automatically
+4. Adds burned-in subtitles to the clip
+5. Gives the user full control to preview and download the final clip
+
+---
+
+## NEW DEPENDENCIES TO ADD
+```bash
+# Backend
+npm install fluent-ffmpeg @ffmpeg-installer/ffmpeg
+npm install ytdl-core         # YouTube download
+npm install @tobyg74/tiktok-api-js  # TikTok download
+npm install node-fetch
+npm install openai            # Whisper API for transcription
+npm install multer            # file upload handling
+
+# Python (run as child_process for advanced FFmpeg tasks)
+pip install yt-dlp            # universal video downloader (fallback)
+pip install openai-whisper    # local Whisper model (fallback)
+```
+
+---
+
+## NEW API ROUTES (add to existing backend/src/routes/)
+
+### File: backend/src/routes/clipper.js
+POST /api/clipper/upload        → accept video file (multipart/form-data, max 2GB)
+POST /api/clipper/from-url      → accept { url: "https://..." } for YouTube/TikTok/Instagram links
+GET  /api/clipper/status/:jobId → poll job progress (0-100%)
+GET  /api/clipper/preview/:clipId → stream the clipped video for in-browser preview
+GET  /api/clipper/download/:clipId → trigger file download (Content-Disposition: attachment)
+DELETE /api/clipper/:clipId     → clean up temp files after download
+
+---
+
+## NEW SERVICE: backend/src/services/clipperService.js
+
+### STEP 1 — VIDEO INGESTION
+```javascript
+async function ingestVideo(input) {
+  // If input is a URL:
+  if (isURL(input)) {
+    const platform = detectPlatform(input); // 'youtube' | 'tiktok' | 'instagram' | 'other'
+    
+    if (platform === 'youtube') {
+      // Use ytdl-core to download best quality mp4
+      // Stream directly to temp file, do NOT store full video in memory
+    } else {
+      // Use yt-dlp as child_process for TikTok / Instagram / other
+      // Command: yt-dlp -f mp4 -o "/tmp/input_<jobId>.mp4" <url>
+    }
+  }
+  // If input is a file upload: already saved by multer to /tmp/
+  return { localPath: "/tmp/input_<jobId>.mp4", duration, resolution }
+}
+```
+
+### STEP 2 — AI CLIP DETECTION
+```javascript
+async function detectBestClip(videoPath, duration) {
+  // 1. Extract audio from video using FFmpeg
+  //    ffmpeg -i input.mp4 -vn -ar 16000 -ac 1 -f wav audio.wav
+
+  // 2. Transcribe audio using OpenAI Whisper API
+  //    → returns: [{ start: 0.0, end: 3.2, text: "Welcome to..." }, ...]
+  //    → Each segment has timestamp + text
+
+  // 3. Send transcript + video metadata to Claude API (claude-sonnet-4-20250514)
+  //    Prompt Claude with:
+  """
+  You are a viral video editor. Given this transcript with timestamps,
+  identify the single most engaging, shareable, and impactful segment.
+  Rules:
+  - Clip must be between 15 and 90 seconds
+  - Must start and end at natural speech boundaries (not mid-sentence)
+  - Must contain the "hook" or the most surprising/valuable moment
+  - Return ONLY JSON: { start_time: float, end_time: float, reason: string }
+  Transcript: <transcript>
+  Video duration: <duration> seconds
+  """
+
+  // 4. Return { startTime, endTime, reason }
+}
+```
+
+### STEP 3 — CUT THE VIDEO
+```javascript
+async function cutClip(inputPath, startTime, endTime, jobId) {
+  const outputPath = `/tmp/clip_${jobId}.mp4`;
+  // FFmpeg command:
+  // ffmpeg -ss <startTime> -to <endTime> -i input.mp4
+  //        -c:v libx264 -c:a aac -avoid_negative_ts make_zero
+  //        -movflags +faststart output.mp4
+  // Use fluent-ffmpeg with progress events → emit to job status
+  return outputPath;
+}
+```
+
+### STEP 4 — GENERATE & BURN SUBTITLES
+```javascript
+async function addSubtitles(clipPath, transcript, startTime, endTime, jobId) {
+  // 1. Filter transcript segments that fall within [startTime, endTime]
+  //    Re-offset timestamps: segment.start -= startTime
+
+  // 2. Generate .SRT file from filtered segments
+  //    Format: index \n HH:MM:SS,ms --> HH:MM:SS,ms \n text \n\n
+
+  // 3. Burn subtitles into video using FFmpeg subtitles filter:
+  //    ffmpeg -i clip.mp4 -vf "subtitles=subs.srt:force_style=
+  //    'FontName=Arial,FontSize=18,PrimaryColour=&Hffffff,
+  //    OutlineColour=&H000000,Outline=2,Bold=1,Alignment=2'"
+  //    -c:a copy output_subbed_<jobId>.mp4
+
+  // Subtitle style: white bold text, black outline, bottom-center
+  // Font size adapts to video resolution (720p → 18, 1080p → 22)
+
+  const finalPath = `/tmp/final_${jobId}.mp4`;
+  return finalPath;
+}
+```
+
+---
+
+## JOB PROGRESS TRACKING
+
+Use Bull queue for the entire pipeline. Emit progress at each step:
+```javascript
+job.progress(10)  // Video downloaded
+job.progress(30)  // Audio extracted
+job.progress(50)  // Transcription done
+job.progress(65)  // AI clip detection done
+job.progress(80)  // Video cut done
+job.progress(95)  // Subtitles burned
+job.progress(100) // Ready for download
+```
+
+Store job result in DB:
+```sql
+-- Add to existing schema:
+clips (
+  id UUID PRIMARY KEY,
+  user_id UUID REFERENCES users(id),
+  job_id VARCHAR,
+  source_url TEXT,              -- null if file upload
+  source_filename VARCHAR,      -- null if URL
+  clip_start FLOAT,
+  clip_end FLOAT,
+  ai_reason TEXT,               -- why Claude chose this clip
+  subtitle_language VARCHAR DEFAULT 'auto',
+  final_file_path TEXT,
+  file_size_bytes BIGINT,
+  status VARCHAR,               -- processing | ready | downloaded | deleted
+  created_at TIMESTAMP,
+  downloaded_at TIMESTAMP
+)
+```
+
+---
+
+## NEW FRONTEND PAGE: src/pages/Clipper.jsx
+
+### UI Layout:
+┌─────────────────────────────────────────────┐
+│  🎬 Smart Clipper                           │
+│                                             │
+│  ┌─────────────────────────────────────┐   │
+│  │  📎 Drop video file here            │   │
+│  │         — or —                      │   │
+│  │  🔗 Paste video URL                 │   │
+│  │  [https://youtube.com/...        ]  │   │
+│  │  [ Analyze Video ]                  │   │
+│  └─────────────────────────────────────┘   │
+│                                             │
+│  ── Processing ──────────────────────────  │
+│  [████████░░░░░░] 65% — Detecting clip...  │
+│                                             │
+│  ── Result ──────────────────────────────  │
+│  ┌─────────────────────────────────────┐   │
+│  │  🎥 [VIDEO PREVIEW PLAYER]          │   │
+│  │  ▶ 0:00 ──────────────── 0:47      │   │
+│  └─────────────────────────────────────┘   │
+│                                             │
+│  📍 Clip: 0:23 → 1:10  (47 seconds)        │
+│  🤖 Why: "Most engaging hook with CTA"      │
+│  💬 Subtitles: auto-detected (French)       │
+│                                             │
+│  [ ⬇ Download Clip (MP4) ]                 │
+│                                             │
+│  [ 📤 Send to Scheduler → ]  (links back   │
+│                               to existing  │
+│                               AutoFlow)    │
+└─────────────────────────────────────────────┘
+
+### Key behaviors:
+- Progress bar polls GET /api/clipper/status/:jobId every 2 seconds
+- Preview player uses HTML5 <video> streaming from /api/clipper/preview/:clipId
+- Download button hits /api/clipper/download/:clipId
+  → Server sets header: Content-Disposition: attachment; filename="autoflow_clip.mp4"
+  → File streams to user browser (do NOT redirect to S3 signed URL — stream through backend)
+- "Send to Scheduler" button pre-fills the existing scheduler form with this clip
+- After download, show: "Delete from server? [Yes, free space]" → calls DELETE endpoint
+
+---
+
+## CLEANUP & STORAGE RULES
+- Temp files auto-delete after 24 hours (cron job)
+- Max 3 clips stored simultaneously per free user
+- Never store original source video permanently — only the final clip
+- Add to existing cron jobs file:
+```javascript
+  // Every hour: delete clips older than 24h
+  cron.schedule('0 * * * *', () => cleanupExpiredClips());
+```
+
+---
+
+## SUPPORTED INPUT FORMATS
+- File upload: MP4, MOV, AVI, MKV, WEBM (auto-converted to MP4)
+- URLs: YouTube (all formats), TikTok, Instagram Reels, direct .mp4 links
+- Max file upload: 2GB
+- Max video duration for analysis: 60 minutes
+
+---
+
+## NEW ENV VARIABLES TO ADD
+OPENAI_API_KEY=          # for Whisper transcription API
+TEMP_FILES_DIR=/tmp/autoflow_clips
+MAX_CLIP_AGE_HOURS=24
+
+---
+
+## INTEGRATION WITH EXISTING AUTOFLOW
+- The "Send to Scheduler" button passes the clip file_path to the existing
+  POST /api/videos endpoint (already handles file ingestion)
+- The clip is then treated like any other uploaded video in AutoFlow
+- Virality score from clipperService is passed directly to the video record
+- No duplication of logic — reuse existing videoAnalyzer and scheduler services
