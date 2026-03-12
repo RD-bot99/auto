@@ -3,7 +3,7 @@ import { Link } from "wouter";
 import { useGetVideos, useCreateVideo, useAnalyzeVideo, useDeleteVideo } from "@workspace/api-client-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { format } from "date-fns";
-import { Search, Plus, Filter, Play, Trash2, BrainCircuit, Loader2, Video as VideoIcon } from "lucide-react";
+import { Search, Plus, Filter, Play, Trash2, BrainCircuit, Loader2, Video as VideoIcon, Sparkles } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
