@@ -22,7 +22,7 @@ import { transcribe } from "../services/transcription.js";
 const router = Router();
 router.use(authMiddleware as any);
 
-const TEMP_DIR = process.env.TEMP_FILES_DIR || "/tmp/autoflow_clips";
+const TEMP_DIR = process.env.TEMP_FILES_DIR || path.resolve(process.cwd(), "..", "..", "data", "clips");
 fs.mkdirSync(TEMP_DIR, { recursive: true });
 
 const storage = multer.diskStorage({
@@ -102,13 +102,20 @@ async function runClipperPipeline(jobId: string, clipId: string, inputPath: stri
     });
     jobProgress[jobId] = { progress: 80, status: "Burning subtitles..." };
 
-    let finalPath = clipPath;
+    let finalPath: string;
+    const safeFinalPath = path.join(TEMP_DIR, `final_${jobId}.mp4`);
     if (transcript.length > 0) {
       try {
         finalPath = await addSubtitles(clipPath, transcript, startTime, endTime, jobId);
       } catch (err: any) {
         console.warn("[Clipper] Subtitle burning failed, using clip without subtitles:", err.message);
+        fs.renameSync(clipPath, safeFinalPath);
+        finalPath = safeFinalPath;
       }
+    } else {
+      // No transcript — rename so cleanupFiles() doesn't delete the final output
+      fs.renameSync(clipPath, safeFinalPath);
+      finalPath = safeFinalPath;
     }
     jobProgress[jobId] = { progress: 95, status: "Finalizing..." };
 

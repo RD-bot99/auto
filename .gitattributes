@@ -1,0 +1,2 @@
+data/clips/clip_dfff2228-840d-4d83-8d84-87d75459f955.mp4 filter=lfs diff=lfs merge=lfs -text
+data/clips/input_dfff2228-840d-4d83-8d84-87d75459f955.mp4 filter=lfs diff=lfs merge=lfs -text

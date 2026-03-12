@@ -8,7 +8,7 @@ import { anthropic } from "@workspace/integrations-anthropic-ai";
 
 const execAsync = promisify(exec);
 
-const TEMP_DIR = process.env.TEMP_FILES_DIR || "/tmp/autoflow_clips";
+const TEMP_DIR = process.env.TEMP_FILES_DIR || path.resolve(process.cwd(), "..", "..", "data", "clips");
 
 export function ensureTempDir() {
   fs.mkdirSync(TEMP_DIR, { recursive: true });
