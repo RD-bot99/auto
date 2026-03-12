@@ -51,18 +51,33 @@ async function runClipperPipeline(jobId: string, clipId: string, inputPath: stri
   try {
     jobProgress[jobId] = { progress: 5, status: "Preparing video..." };
 
+    // Verify the input file actually exists before doing anything
+    if (!fs.existsSync(inputPath)) {
+      // yt-dlp sometimes saves with a different extension — scan the dir for a match
+      const dir = path.dirname(inputPath);
+      const base = path.basename(inputPath, path.extname(inputPath));
+      const found = fs.readdirSync(dir).find((f) => f.startsWith(base.replace("input_", "input_")));
+      if (found) {
+        inputPath = path.join(dir, found);
+        console.log("[Clipper] Using actual downloaded file:", inputPath);
+      } else {
+        throw new Error(`Input video file not found at ${inputPath}`);
+      }
+    }
+
     const duration = await getVideoDuration(inputPath);
     jobProgress[jobId] = { progress: 10, status: "Extracting audio..." };
 
     const audioPath = await extractAudio(inputPath, jobId);
-    jobProgress[jobId] = { progress: 30, status: "Transcribing audio..." };
+    jobProgress[jobId] = { progress: 30, status: audioPath ? "Transcribing audio..." : "No audio stream — skipping transcription..." };
 
-    let transcript;
-    try {
-      transcript = await transcribe(audioPath);
-    } catch (err: any) {
-      console.warn("[Clipper] Transcription failed, using empty transcript:", err.message);
-      transcript = [];
+    let transcript: { start: number; end: number; text: string }[] = [];
+    if (audioPath) {
+      try {
+        transcript = await transcribe(audioPath);
+      } catch (err: any) {
+        console.warn("[Clipper] Transcription failed, using empty transcript:", err.message);
+      }
     }
     jobProgress[jobId] = { progress: 50, status: "Detecting best clip..." };
 

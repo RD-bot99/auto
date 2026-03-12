@@ -9,9 +9,15 @@ import { anthropic } from "@workspace/integrations-anthropic-ai";
 const execAsync = promisify(exec);
 
 const TEMP_DIR = process.env.TEMP_FILES_DIR || "/tmp/autoflow_clips";
-fs.mkdirSync(TEMP_DIR, { recursive: true });
+
+export function ensureTempDir() {
+  fs.mkdirSync(TEMP_DIR, { recursive: true });
+}
+
+ensureTempDir();
 
 export function getTempPath(filename: string) {
+  ensureTempDir(); // always ensure dir exists before building a path
   return path.join(TEMP_DIR, filename);
 }
 
@@ -24,19 +30,26 @@ export async function getVideoDuration(videoPath: string): Promise<number> {
   });
 }
 
-export async function extractAudio(videoPath: string, jobId: string): Promise<string> {
-  const audioPath = getTempPath(`audio_${jobId}.wav`);
-  return new Promise((resolve, reject) => {
-    ffmpeg(videoPath)
-      .noVideo()
-      .audioFrequency(16000)
-      .audioChannels(1)
-      .audioCodec("pcm_s16le")
-      .format("wav")
-      .on("end", () => resolve(audioPath))
-      .on("error", reject)
-      .save(audioPath);
-  });
+export async function extractAudio(videoPath: string, jobId: string): Promise<string | null> {
+  ensureTempDir();
+  const audioPath = path.join(TEMP_DIR, `audio_${jobId}.wav`);
+
+  // Check if the video actually has an audio stream first
+  const { stdout: probeOut } = await execAsync(
+    `ffprobe -v quiet -print_format json -show_streams "${videoPath}"`
+  );
+  const probeData = JSON.parse(probeOut);
+  const hasAudio = probeData.streams?.some((s: any) => s.codec_type === "audio");
+
+  if (!hasAudio) {
+    console.warn("[Clipper] Video has no audio stream — skipping transcription");
+    return null;
+  }
+
+  await execAsync(
+    `ffmpeg -y -i "${videoPath}" -vn -ar 16000 -ac 1 -acodec pcm_s16le "${audioPath}"`
+  );
+  return audioPath;
 }
 
 export async function detectBestClip(
@@ -172,10 +185,12 @@ export async function downloadFromUrl(url: string, jobId: string): Promise<strin
     let proc: ReturnType<typeof spawn>;
     try {
       proc = spawn(ytdlpBin, [
-        "-f", "mp4/bestvideo[ext=mp4]+bestaudio[ext=m4a]/best[ext=mp4]/best",
+        // Prefer best combined AV stream, then best video+audio merge, then absolute best
+        "-f", "bestvideo[ext=mp4]+bestaudio[ext=m4a]/bestvideo+bestaudio/best",
         "--merge-output-format", "mp4",
         "-o", outputPath,
         "--no-playlist",
+        "--no-warnings",
         url,
       ]);
     } catch (err) {
