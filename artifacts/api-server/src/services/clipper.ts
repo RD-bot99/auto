@@ -158,19 +158,39 @@ export async function addSubtitles(
 export async function downloadFromUrl(url: string, jobId: string): Promise<string> {
   const outputPath = getTempPath(`input_${jobId}.mp4`);
 
+  // Prefer the absolute Nix store path if it exists, fall back to PATH
+  const ytdlpCandidates = [
+    "/nix/store/am2x1y1qyja0hbyjpffj7rcvycp9d644-yt-dlp-2025.6.30/bin/yt-dlp",
+    "/usr/local/bin/yt-dlp",
+    "yt-dlp",
+  ];
+  const ytdlpBin = ytdlpCandidates.find((b) => {
+    try { return b === "yt-dlp" || fs.existsSync(b); } catch { return false; }
+  }) ?? "yt-dlp";
+
   return new Promise((resolve, reject) => {
-    const ytdlp = spawn("yt-dlp", [
-      "-f", "mp4/bestvideo[ext=mp4]+bestaudio[ext=m4a]/best[ext=mp4]/best",
-      "--merge-output-format", "mp4",
-      "-o", outputPath,
-      "--no-playlist",
-      url,
-    ]);
+    let proc: ReturnType<typeof spawn>;
+    try {
+      proc = spawn(ytdlpBin, [
+        "-f", "mp4/bestvideo[ext=mp4]+bestaudio[ext=m4a]/best[ext=mp4]/best",
+        "--merge-output-format", "mp4",
+        "-o", outputPath,
+        "--no-playlist",
+        url,
+      ]);
+    } catch (err) {
+      reject(new Error("yt-dlp not found — URL mode requires yt-dlp to be installed"));
+      return;
+    }
 
-    ytdlp.stdout.on("data", (d) => console.log("[yt-dlp]", d.toString()));
-    ytdlp.stderr.on("data", (d) => console.log("[yt-dlp]", d.toString()));
+    proc.on("error", (err) => {
+      reject(new Error(`yt-dlp not available: ${err.message}. Install with: pip install yt-dlp`));
+    });
 
-    ytdlp.on("close", (code) => {
+    proc.stdout?.on("data", (d) => console.log("[yt-dlp]", d.toString()));
+    proc.stderr?.on("data", (d) => console.log("[yt-dlp]", d.toString()));
+
+    proc.on("close", (code) => {
       if (code === 0) resolve(outputPath);
       else reject(new Error(`yt-dlp exited with code ${code}`));
     });
