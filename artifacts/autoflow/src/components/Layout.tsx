@@ -9,7 +9,8 @@ import {
   LogOut,
   Zap,
   Menu,
-  X
+  X,
+  Scissors
 } from "lucide-react";
 import { useAuth } from "@/lib/auth";
 import { useLogout } from "@workspace/api-client-react";
@@ -23,6 +24,7 @@ const NAV_ITEMS = [
   { href: "/library", label: "Video Library", icon: Video },
   { href: "/scheduler", label: "Scheduler", icon: CalendarDays },
   { href: "/analytics", label: "Analytics", icon: BarChart3 },
+  { href: "/clipper", label: "Smart Clipper", icon: Scissors },
   { href: "/settings", label: "Settings", icon: Settings },
 ];
 

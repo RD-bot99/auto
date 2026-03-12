@@ -28,6 +28,7 @@ AutoFlow is a full-stack social media automation platform for managing, scheduli
 5. **Smart Scheduler** — Algorithm suggests optimal posting times per platform with confidence scores
 6. **Publish Pipeline** — Schedule posts, publish immediately, track status (pending/published/failed)
 7. **Analytics** — Overview dashboard, per-post analytics with engagement metrics
+8. **Smart Clipper** — AI-powered viral clip extractor: upload video → Groq Whisper transcribes audio → Claude detects best 15–90s clip → FFmpeg cuts + burns subtitles → download MP4. Groq API primary (7,200 min/day free), local Whisper fallback.
 8. **Settings** — Account management, timezone config, notification preferences
 
 ## Structure

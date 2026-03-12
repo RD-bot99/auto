@@ -13,6 +13,7 @@ import Library from "@/pages/Library";
 import Scheduler from "@/pages/Scheduler";
 import Analytics from "@/pages/Analytics";
 import Settings from "@/pages/Settings";
+import Clipper from "@/pages/Clipper";
 import NotFound from "@/pages/not-found";
 
 const queryClient = new QueryClient({
@@ -46,6 +47,7 @@ function Router() {
       <Route path="/scheduler" component={() => <ProtectedRoute component={Scheduler} />} />
       <Route path="/analytics" component={() => <ProtectedRoute component={Analytics} />} />
       <Route path="/settings" component={() => <ProtectedRoute component={Settings} />} />
+      <Route path="/clipper" component={() => <ProtectedRoute component={Clipper} />} />
       
       <Route component={NotFound} />
     </Switch>
