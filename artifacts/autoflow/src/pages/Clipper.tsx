@@ -390,9 +390,9 @@ export default function Clipper() {
               exit={{ opacity: 0, y: -4 }}
               className="space-y-3"
             >
-              <div className="bg-amber-500/10 border border-amber-500/20 rounded-lg px-3 py-2 text-xs text-amber-400 flex items-start gap-2">
-                <AlertCircle className="w-3.5 h-3.5 mt-0.5 shrink-0" />
-                <span>URL mode requires yt-dlp installed in the server environment. Supports YouTube, TikTok, Instagram, and 1000+ sites.</span>
+              <div className="bg-white/3 border border-white/8 rounded-lg px-3 py-2 text-xs text-muted-foreground flex items-start gap-2">
+                <Link2 className="w-3.5 h-3.5 mt-0.5 shrink-0 text-primary" />
+                <span>Supports YouTube, TikTok, Instagram, Twitter/X, Facebook, and 1000+ other sites.</span>
               </div>
               <div className="flex gap-2">
                 <Input
